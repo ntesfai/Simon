@@ -3,7 +3,6 @@ import java.awt.*;
 import java.net.*;
 import java.util.*;
 import java.io.*;
-import java.util.stream.Stream;
 
 /**
  * Created by nubian on 5/30/17.
@@ -54,7 +53,7 @@ public class SimonServer extends JFrame {
     }
 }
 
-class SimonHandler implements Runnable{
+class SimonHandler implements Runnable , SimonConstants{
     private Socket P1;
     private int sequence = 4;
     private final boardColor[][] cell = new boardColor[2][2];
@@ -74,10 +73,17 @@ class SimonHandler implements Runnable{
             DataOutputStream player1Out = new DataOutputStream(
                     P1.getOutputStream());
 
+            //INFORMS THE PLAYER WHO THEY ARE
+            player1Out.writeInt(PLAYER1);
+
             //determine the game's status to the players
             while(true){
                 sendColors(player1Out);
-                /**Implement remaining Handler Class*/
+                int statusP1 = player1In.readInt();
+                //int statusP2;
+                if(statusP1 == PLAYER1_LOST)  {break;}
+                /**At this point a player can lose but if the other player loses
+                 * then keep playing but with a difference sequence.*/
 
             }
         }
@@ -94,14 +100,6 @@ class SimonHandler implements Runnable{
         }
     }
 
-synchronized private void fillQueue(){
-        //fill the queue with random colors
-        for(int i = 0; i < sequence; i++){
-            //deque.add(boardColor.randomColor());
-            boardColors[i] = boardColor.randomColor();
-        }
-    }
-
     /*Sets the cells to some enum value boardColor*/
     private void fillCells(){
         int k = 0;
@@ -109,15 +107,6 @@ synchronized private void fillQueue(){
             for(int j = 0; j < 2; j++){
             cell[i][j] = boardColor.values()[k++];
             }
-    }
-
-    private boolean roundWin(Queue<boardColor> q){
-        for (boardColor c: q) {
-            while(q.iterator().hasNext() && deque.iterator().hasNext())
-                if(q.iterator().next() != deque.iterator().next())
-                    return false;
-        }
-        return true;
     }
 }
 
@@ -136,13 +125,15 @@ enum boardColor {
     public static boardColor getColor(int i){
         switch (i){
             case 0:
-                return Red;     break;
+                return Red;
             case 1:
-                return Blue;    break;
+                return Blue;
             case 2:
-                return Yellow;  break;
+                return Yellow;
             case 3:
-                return Green;   break;
+                return Green;
+            default:
+                return null;
         }
     }
 }
