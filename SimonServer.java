@@ -53,7 +53,7 @@ public class SimonServer extends JFrame {
     }
 }
 
-class SimonHandler implements Runnable , SimonConstants{
+class SimonHandler implements Runnable , SimonConstants {
     private Socket P1;
     private int sequence = 4;
     private final boardColor[][] cell = new boardColor[2][2];
@@ -66,7 +66,7 @@ class SimonHandler implements Runnable , SimonConstants{
     }
 
     /*Get both the input and output streams of the socket*/
-    public void run(){
+    public void run() {
         try{
             DataInputStream player1In = new DataInputStream(
                     P1.getInputStream());
@@ -101,13 +101,14 @@ class SimonHandler implements Runnable , SimonConstants{
     }
 
     /*Sets the cells to some enum value boardColor*/
-    private void fillCells(){
+    private void fillCells() {
         int k = 0;
         for(int i = 0; i < 2; i++)
             for(int j = 0; j < 2; j++){
             cell[i][j] = boardColor.values()[k++];
             }
     }
+
 }
 
 //Enumeration for the colors the player chooses

@@ -1,5 +1,6 @@
 import javax.swing.*;
 import javax.swing.border.LineBorder;
+import javax.swing.text.html.HTMLDocument;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -11,7 +12,7 @@ import java.util.*;
  * Created by nubian on 6/1/17.
  */
 public class SimonClient extends JApplet
-implements Runnable, SimonConstants{
+implements Runnable, SimonConstants {
 
     private boolean continuePlay = true;
     private boolean waiting = true;
@@ -25,6 +26,19 @@ implements Runnable, SimonConstants{
     private DataInputStream fromServer;
     private DataOutputStream toServer;
 
+    public static void main(String[] args) {
+        JFrame frame = new JFrame("Simon Client");
+
+        SimonClient client = new SimonClient();
+        client.getContentPane().add(frame, BorderLayout.CENTER);
+
+        client.init();
+        client.start();
+
+        frame.setSize(400, 400);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+    }
 
     public void init() {
         JPanel p = new JPanel();
@@ -49,8 +63,9 @@ implements Runnable, SimonConstants{
         connectToServer();
     }
 
+    /**Sets up the server objects*/
     private void connectToServer() {
-        try{
+        try {
         Socket sock = new Socket(getCodeBase().getHost(), 8000);
         fromServer = new DataInputStream(sock.getInputStream());
         toServer = new DataOutputStream(sock.getOutputStream());
@@ -71,7 +86,9 @@ implements Runnable, SimonConstants{
              * sequence*/
             myTurn = true;
             while(continuePlay) {
-                readColors();
+                readColorsFromServer();
+                Cell cell = new Cell();
+                cell.displayColorPattern();
                 waitForPlayerAction();
                 gameStatusToServer();
             }
@@ -81,24 +98,27 @@ implements Runnable, SimonConstants{
         }
     }
 
+    /**The game conditions for losing if a player wins a round, if both win and both lose
+     * or if only one wins*/
     private void gameStatusToServer() throws IOException {
         serverStatus = fromServer.readInt();
-        if(!myTurn && serverStatus == PLAYER1) {
+        if (!myTurn && serverStatus == PLAYER1) {
             toServer.writeInt(PLAYER1_LOST);
             jlblStatus.setText("Incorrect entry");
-        }
-        else if(!myTurn && serverStatus == PLAYER2) {
+
+        } else if (!myTurn && serverStatus == PLAYER2) {
             toServer.writeInt(PLAYER2_LOST);
             jlblStatus.setText("Incorrect entry");
         }
+
         //Player got the sequence correct
-        else if(serverStatus == PLAYER1){
+        else if (serverStatus == PLAYER1) {
             toServer.writeInt(PLAYER1_WON);
+            sequence++;
         }
-        else
-            toServer.writeInt(PLAYER2_WON);
     }
 
+    /**Waits for the Player to make a move*/
     private void waitForPlayerAction() throws InterruptedException{
         while(waiting){
             Thread.sleep(100);
@@ -106,7 +126,8 @@ implements Runnable, SimonConstants{
         waiting = true;
     }
 
-    private void readColors() throws IOException{
+    /**Fills the colorQueue according to the integers from the Server*/
+    private void readColorsFromServer() throws IOException {
         int i = 0;
         while(i < sequence){
             switch (fromServer.readInt()){
@@ -124,6 +145,7 @@ implements Runnable, SimonConstants{
         }
     }
 
+    /**Class that is added to the GridLayout*/
     public class Cell extends JPanel {
         // Indicate the row and column of this cell in the board
         private boardColor color;
@@ -132,6 +154,7 @@ implements Runnable, SimonConstants{
         private int column;
 
         // Token used for this cell
+        public Cell(){}
 
         public Cell(int row, int column) {
             this.row = row;
@@ -141,7 +164,8 @@ implements Runnable, SimonConstants{
             addMouseListener(new ClickListener());  // Register listener
         }
 
-        /** Handle mouse click on a cell */
+        /** Handle mouse click on a cell
+         * calls the brighten cell method*/
         private class ClickListener extends MouseAdapter{
             public void mouseClicked(MouseEvent e) {
                 //if the color does not match then player loses round
@@ -159,8 +183,8 @@ implements Runnable, SimonConstants{
             }
         }
 
-        //Should only be called four times
-        private void setCellColor(){
+        /**Sets the specific cell's color*/
+        private void setCellColor() {
             int cellColor = 0;
             color = boardColor.values()[cellColor++];
             switch (color){
@@ -182,7 +206,7 @@ implements Runnable, SimonConstants{
             return this.color.toString();
         }
 
-        public String toString(){
+        public String toString() {
             switch (color){
                 case Red:
                     return "Red";
@@ -197,14 +221,39 @@ implements Runnable, SimonConstants{
             }
         }
 
-        private void brightenCell(){
-            setBackground(Color.getColor(getCellColor().toString()).brighter());
-            try {
-                Thread.sleep(350);
-                setBackground(Color.getColor(getCellColor().toString()).darker());
-            } catch (InterruptedException e) {
-                System.out.println(e);
+        /**Displays the sequence that must be copied by the player exactly*/
+        private void displayColorPattern() {
+            Iterator iter = colorQueue.iterator();
+            while(iter.hasNext()) {
+                long start = System.currentTimeMillis();
+                setBackground(Color.getColor(iter.next().toString()).brighter());
+                long end = System.currentTimeMillis();
+                for(int i = 0; i > -1; i++){
+                    if(end - start > 550){
+                        //maybe use the .darker() method???
+                        setBackground(Color.getColor(getCellColor().toString()).darker());
+                        break;
+                    }
+                    else
+                        end = System.currentTimeMillis();
+                }
             }
         }
+
+        /**Brightens the cell momentarily so that when clicked on it lights up*/
+        private void brightenCell() {
+            long start = System.currentTimeMillis();
+            setBackground(Color.getColor(getCellColor().toString()).brighter());
+            long end = System.currentTimeMillis();
+            for(int i = 0; i > -1; i++) {
+                if(end - start > 450) {
+                setBackground(Color.getColor(getCellColor().toString()).darker());
+                break;
+                }
+                else
+                    end = System.currentTimeMillis();
+            }
+        }
+
     }
 }
