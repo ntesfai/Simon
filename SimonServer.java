@@ -8,10 +8,12 @@ import java.io.*;
  * Created by nubian on 5/30/17.
  */
 public class SimonServer extends JFrame {
-    public static void main(String [] args){SimonServer frame = new SimonServer();}
-    public SimonServer(){
+    public static void main(String [] args) {SimonServer frame = new SimonServer();}
+
+    public SimonServer() {
         int sessionNo = 1;
         JTextArea jtaLog = new JTextArea();
+
         JScrollPane scrollPane = new JScrollPane(jtaLog);
         add(scrollPane, BorderLayout.CENTER);
 
@@ -22,7 +24,7 @@ public class SimonServer extends JFrame {
 
         try{
             ServerSocket serverSocket = new ServerSocket(8000);
-            jtaLog.append("Server started at " +serverSocket.getLocalPort()+", on "+ new Date() +"\n");
+            jtaLog.append("Server started at " +serverSocket.getLocalPort()+", on "+ new Date() + "\n");
 
             while(true){
 
@@ -59,7 +61,7 @@ class SimonHandler implements Runnable , SimonConstants {
     private final boardColor[][] cell = new boardColor[2][2];
     private Deque<boardColor> deque;
 
-    SimonHandler(Socket P1){
+    SimonHandler(Socket P1) {
         this.P1 = P1;
         //initialize the cells
         fillCells();
@@ -82,6 +84,7 @@ class SimonHandler implements Runnable , SimonConstants {
                 int statusP1 = player1In.readInt();
                 //int statusP2;
                 if(statusP1 == PLAYER1_LOST)  {break;}
+                else if(statusP1 == PLAYER1_WON)    {sequence++;}
                 /**At this point a player can lose but if the other player loses
                  * then keep playing but with a difference sequence.*/
 
@@ -92,11 +95,10 @@ class SimonHandler implements Runnable , SimonConstants {
         }
     }
 
-    private void sendColors(DataOutputStream P1)throws IOException{
-        Random rand = new Random();
-        int i = 0;   while(i < sequence){
+    private void sendColors(DataOutputStream P1) throws IOException {
+        Random rand = new Random(System.currentTimeMillis());
+        for(int i = 0; i < sequence; i++){
             P1.writeInt(rand.nextInt(boardColor.values().length));
-            i++;
         }
     }
 
@@ -116,7 +118,7 @@ enum boardColor {
     Red, Blue, Green, Yellow;
     private static final boardColor[] colors = boardColor.values();
     private static final int values = colors.length;
-    private static final Random rand = new Random();
+    private static final Random rand = new Random(System.currentTimeMillis());
 
     //method for returning one enum value randomly
     public static boardColor randomColor(){
