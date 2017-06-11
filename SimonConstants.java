@@ -9,7 +9,7 @@ public interface SimonConstants {
     public static int PLAYER1_LOST = -1;
     public static int PLAYER2_LOST = -2;
     public static int DRAW = 3; // Indicate a draw
-    public static int CONTINUE = 4; // Indicate to continue
+    public static int QUIT = 4; // Indicate to quit
 
     public static int RED = 0;
     public static int YELLOW = 1;

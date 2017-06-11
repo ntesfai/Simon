@@ -26,9 +26,9 @@ public class SimonServer extends JFrame {
             ServerSocket serverSocket = new ServerSocket(8000);
             jtaLog.append("Server started at " +serverSocket.getLocalPort()+", on "+ new Date() + "\n");
 
-            while(true){
+            while(true) {
 
-                jtaLog.append("Waiting for players to join session..."+sessionNo+"\n");
+                jtaLog.append("Waiting for player 1 to join session..."+sessionNo+"\n");
 
                 //connect player 1
                 Socket player1 = serverSocket.accept();
@@ -38,13 +38,24 @@ public class SimonServer extends JFrame {
                 jtaLog.append("Player 1's IP address" +
                         player1.getInetAddress().getHostAddress() + '\n');
 
+                jtaLog.append("Waiting for player 2 to join session... " +
+                sessionNo + "\n");
+
+                //Will require a new instance of the SimonClient Class
+/*                Socket player2 = serverSocket.accept();
+
+                jtaLog.append("Player 2 has joined session " + sessionNo + '\n');
+                jtaLog.append("Player2's  IP address " +
+                        player2.getInetAddress().getHostAddress() + '\n');
+
                 //Display this session and increment session no.
                 jtaLog.append(new Date() + "Start a thread for session: "
                 + sessionNo++ +"\n");
 
                 //create a new thread for this session
+                SimonHandler handler = new SimonHandler(player1, player2);
+*/
                 SimonHandler handler = new SimonHandler(player1);
-
                 //start the thread
                 new Thread(handler).start();
             }
@@ -56,61 +67,111 @@ public class SimonServer extends JFrame {
 }
 
 class SimonHandler implements Runnable , SimonConstants {
+
     private Socket P1;
+    private Socket P2;
     private int sequence = 4;
-    private final boardColor[][] cell = new boardColor[2][2];
     private Deque<boardColor> deque;
 
-    SimonHandler(Socket P1) {
+
+    SimonHandler(Socket P1){
         this.P1 = P1;
+    }
+    SimonHandler(Socket P1, Socket P2) {
+        this.P1 = P1;
+        this.P2 = P2;
         //initialize the cells
-        fillCells();
     }
 
     /*Get both the input and output streams of the socket*/
     public void run() {
-        try{
+
+        try {
             DataInputStream player1In = new DataInputStream(
                     P1.getInputStream());
             DataOutputStream player1Out = new DataOutputStream(
                     P1.getOutputStream());
+           /* DataInputStream player2In = new DataInputStream(P2.getInputStream());
+            DataOutputStream player2Out = new DataOutputStream(P2.getOutputStream());
+            */
 
             //INFORMS THE PLAYER WHO THEY ARE
             player1Out.writeInt(PLAYER1);
+            //player2Out.writeInt(PLAYER2);
+
+            while(true) {
+                sendColors(player1Out);
+                //sendColors(player2Out);
+
+                //notifies if the player either won or lost
+                int statusP1 = player1In.readInt();
+                //int statusP2 = player2In.readInt();
+
+                if(statusP1 == PLAYER1_LOST) {
+                    player1Out.writeInt(1);
+                }
+
+                else if (statusP1 == PLAYER1_WON){
+                    player1Out.writeInt(0);
+                    player1Out.writeInt(0);
+                    sequence++;
+                }
+            }
 
             //determine the game's status to the players
-            while(true){
+            /*while(true) {
                 sendColors(player1Out);
-                int statusP1 = player1In.readInt();
-                //int statusP2;
-                if(statusP1 == PLAYER1_LOST)  {break;}
-                else if(statusP1 == PLAYER1_WON)    {sequence++;}
-                /**At this point a player can lose but if the other player loses
-                 * then keep playing but with a difference sequence.*/
+                //sendColors(player2Out);
 
-            }
+                //notifies if the player either won or lost
+                int statusP1 = player1In.readInt();
+                //int statusP2 = player2In.readInt();
+
+                if(statusP1 == PLAYER1_LOST && statusP2 == PLAYER2_LOST) {
+                    player1Out.writeInt(1);
+                    player2Out.writeInt(1);
+                }
+
+                else if(statusP1 == PLAYER1_WON && statusP2 == PLAYER2_LOST) {
+                    player1Out.writeInt(1);
+                    player2Out.writeInt(0);
+                    break;
+                }
+
+                else if(statusP2 == PLAYER2_WON && statusP1 == PLAYER1_LOST) {
+                    player1Out.writeInt(0);
+                    player2Out.writeInt(1);
+                    break;
+                }
+
+                else if (statusP1 == PLAYER1_WON && statusP2 == PLAYER2_WON){
+                    player1Out.writeInt(0);
+                    player1Out.writeInt(0);
+                    sequence++;
+                }
+            }*/
         }
-        catch (IOException ex){
+        catch (IOException ex) {
             System.out.println(ex);
         }
     }
 
-    private void sendColors(DataOutputStream P1) throws IOException {
+    public void sendColors(DataOutputStream P1) throws IOException {
+        System.out.println("Writing");
+        int[] colors = {0,1,2,3};
         Random rand = new Random(System.currentTimeMillis());
-        for(int i = 0; i < sequence; i++){
-            P1.writeInt(rand.nextInt(boardColor.values().length));
+
+        try {
+            for(int i = 0; i < sequence; i++) {
+                int sendInt =rand.nextInt(colors.length);
+                System.out.println(sendInt);
+                P1.writeInt(sendInt);
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace();
         }
     }
-
-    /*Sets the cells to some enum value boardColor*/
-    private void fillCells() {
-        int k = 0;
-        for(int i = 0; i < 2; i++)
-            for(int j = 0; j < 2; j++){
-            cell[i][j] = boardColor.values()[k++];
-            }
-    }
-
 }
 
 //Enumeration for the colors the player chooses
@@ -118,25 +179,4 @@ enum boardColor {
     Red, Blue, Green, Yellow;
     private static final boardColor[] colors = boardColor.values();
     private static final int values = colors.length;
-    private static final Random rand = new Random(System.currentTimeMillis());
-
-    //method for returning one enum value randomly
-    public static boardColor randomColor(){
-        return colors[rand.nextInt(values)];
-    }
-
-    public static boardColor getColor(int i){
-        switch (i){
-            case 0:
-                return Red;
-            case 1:
-                return Blue;
-            case 2:
-                return Yellow;
-            case 3:
-                return Green;
-            default:
-                return null;
-        }
-    }
 }

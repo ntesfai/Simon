@@ -2,10 +2,7 @@ import javax.swing.*;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
@@ -23,14 +20,14 @@ implements Runnable, SimonConstants {
     private boolean waiting = true;
     private boolean myTurn = false;
 
+    private JFrame frame;
     private JLabel jlblTitle = new JLabel();
     private JLabel jlblStatus = new JLabel();
+    private JButton button;
 
     private int cellColor = 0;
     private int sequence = 4;
     private int playerIs;
-    private int rowSelected;
-    private int columnSelected;
 
     private Cell[][] cell = new Cell[2][2];
 
@@ -39,27 +36,41 @@ implements Runnable, SimonConstants {
     private DataInputStream fromServer;
     private DataOutputStream toServer;
 
+
     public static void main(String[] args) {
         JFrame frame = new JFrame("Simon Client");
 
         SimonClient client = new SimonClient();
+        /**
         client.isStandAlone = true;
-        frame.getContentPane().add(client, BorderLayout.CENTER);
+        frame.add(client, BorderLayout.CENTER);
 
         client.init();
-        client.start();
 
         frame.setSize(400, 400);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
+         */
+    }
+
+    public SimonClient() {
+        frame = new JFrame("Simon Client");
+        frame.add(this, BorderLayout.CENTER);
+        this.isStandAlone = true;
+        frame.setSize(500,500);
+        frame.setLocationRelativeTo(null);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+        init();
     }
 
     public void init() {
         JPanel p = new JPanel();
         p.setLayout(new GridLayout(2, 2, 0, 0));
         for(int i = 0; i < 2; i++)
-            for(int j = 0; j < 2; j++)
+            for(int j = 0; j < 2; j++) {
                 p.add(cell[i][j] = new Cell(i, j));
+        }
 
         //No boarders
         p.setBorder(new LineBorder(Color.black, 1));
@@ -72,6 +83,7 @@ implements Runnable, SimonConstants {
         add(jlblTitle, BorderLayout.NORTH);
         add(p, BorderLayout.CENTER);
         add(jlblStatus, BorderLayout.SOUTH);
+        p.setVisible(true);
 
         // Connect to the server
         connectToServer();
@@ -98,10 +110,10 @@ implements Runnable, SimonConstants {
     }
 
     public void run() {
-        try{
+        try {
             playerIs = fromServer.readInt();
             //The sequence that the player must copy
-            jlblTitle.setText("Player, copy the sequence of colors as they light up");
+            jlblTitle.setText("Player, copy the sequence of colors exactly");
             /**Implementation for lighting the colors on the cells as they correspond to the
              * sequence*/
             myTurn = true;
@@ -112,6 +124,8 @@ implements Runnable, SimonConstants {
                 waitForPlayerAction();
                 gameStatusToServer();
             }
+            if(!continuePlay)
+                frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
         }
         catch (Exception ex){
             ex.printStackTrace();
@@ -130,42 +144,83 @@ implements Runnable, SimonConstants {
         }
     }
 
-    /**The game conditions for losing if a player wins a round, if both win and both lose
-     * or if only one wins*/
+
+    /**Gets data from server indicating which player won the game
+     * and if a player wants to keep playing*/
     private void gameStatusToServer() throws IOException {
-        //serverStatus = fromServer.readInt();
+
         if (!myTurn && playerIs == PLAYER1) {
             waiting = false;
             toServer.writeInt(PLAYER1_LOST);
             jlblStatus.setText("Incorrect entry Player 1");
-            continuePlay = false;
+            colorQueue.clear();
+            if(fromServer.readInt() == 0) {
+                jlblStatus.setText("Player 2 wins!");
+                continuePlay = false;
+            }
+            else
+                myTurn = true;
+                jlblStatus.setText("Its a draw!");
 
         } else if (!myTurn && playerIs == PLAYER2) {
+            waiting = false;
             toServer.writeInt(PLAYER2_LOST);
             jlblStatus.setText("Incorrect entry Player 2");
+            colorQueue.clear();
+            if (fromServer.readInt() == 0) {
+                jlblStatus.setText("Player 1 wins!");
+                continuePlay = false;
+            }
+            else
+                myTurn = true;
+                jlblStatus.setText("Its a draw!");
         }
 
-        //Player got the sequence correct
         else if (playerIs == PLAYER1) {
             toServer.writeInt(PLAYER1_WON);
-            sequence++;
+            if (fromServer.readInt() == 1)
+                jlblStatus.setText("Player 2 lost, you win!");
+            else {
+                jlblStatus.setText("Good Job! It gets harder!");
+                colorQueue.clear();
+                sequence++;
+                pause(2000);
+                jlblStatus.setText("");
+            }
+        }
+
+        else if (playerIs == PLAYER2) {
+            toServer.writeInt(PLAYER2_WON);
+            if (fromServer.readInt() == 1)
+                jlblStatus.setText("Player 1 lost, you Win!");
+            else {
+                jlblStatus.setText("Good Job! It gets harder!");
+                colorQueue.clear();
+                sequence++;
+                pause(2000);
+                jlblStatus.setText("");
+            }
         }
     }
 
     /**Waits for the Player to make a move*/
     private void waitForPlayerAction() throws InterruptedException, IOException {
         while(waiting) {
-            pause(100);
-            if(!myTurn)
-                gameStatusToServer();
+            Thread.sleep(100);
+            if(!myTurn || colorQueue.isEmpty() || !continuePlay)
+                waiting = false;
+                //gameStatusToServer();
         }
         waiting = true;
     }
 
     /**Fills the colorQueue according to the integers from the Server*/
     private void readColorsFromServer() throws IOException {
+        System.out.println("Reading");
         for(int i = 0; i < sequence; i++) {
-            switch (fromServer.readInt()){
+            int in = fromServer.readInt();
+            System.out.println(in);
+            switch (in){
                 case 0:
                     colorQueue.add(boardColor.Red);     break;
                 case 1:
@@ -175,7 +230,7 @@ implements Runnable, SimonConstants {
                 case 3:
                     colorQueue.add(boardColor.Green);   break;
                 default:
-                    System.out.println("INVALID INPUT FROM SERVER!!"); i++;
+                    jlblStatus.setText("INVALID INPUT FROM SERVER"); i++;
             }
         }
         System.out.println(colorQueue);
@@ -192,6 +247,7 @@ implements Runnable, SimonConstants {
         public Cell(){}
 
         public Cell(int row, int column) {
+            int delay = 2000;
             this.row = row;
             this.column = column;
             setCellColor();
@@ -199,16 +255,23 @@ implements Runnable, SimonConstants {
             addMouseListener(new ClickListener());  // Register listener
         }
 
+
         /** Handle mouse click on a cell
          * calls the brighten cell method*/
         private class ClickListener extends MouseAdapter {
             public void mouseClicked(MouseEvent e) {
-                //if the color does not match then player loses round
+               //if the color does not match then player loses round
                 System.out.println(colorQueue);
                 if(color != colorQueue.removeFirst()) {
-                    myTurn = false;     return;
+                    myTurn = false;
                 }
-                cellSelected(row, column);
+            }
+
+            public void mouseEntered(MouseEvent e) {
+                setBackground(getBackground().brighter());
+            }
+            public void mouseExited(MouseEvent e) {
+                setBackground(getBackground().darker());
             }
         }
 
@@ -217,22 +280,23 @@ implements Runnable, SimonConstants {
             color = boardColor.values()[cellColor++];
             switch (color) {
                 case Red:
-                    setBackground(Color.RED);
+                    setBackground(Color.RED.darker());
                     break;
                 case Yellow:
-                    setBackground(Color.YELLOW);
+                    setBackground(Color.YELLOW.darker());
                     break;
                 case Blue:
-                    setBackground(Color.BLUE);
+                    setBackground(Color.BLUE.darker());
                     break;
                 case Green:
-                    setBackground(Color.GREEN);
+                    setBackground(Color.GREEN.darker());
                     break;
             }
         }
 
         /**Displays the sequence that must be copied by the player exactly*/
         private void displayColorPattern() {
+            System.out.println("Displaying");
             Deque<boardColor> deque = new LinkedList<>();
             while(!colorQueue.isEmpty()) {
                 boardColor bc = colorQueue.removeFirst();
@@ -241,7 +305,7 @@ implements Runnable, SimonConstants {
 
                     if(cell[i][j].color == bc) {
                         Color temp = cell[i][j].getBackground();
-                        cell[i][j].setBackground(Color.white);
+                        cell[i][j].setBackground(temp.brighter());
                         pause(400);
                         cell[i][j].setBackground(temp);
                         pause(600);
@@ -254,19 +318,10 @@ implements Runnable, SimonConstants {
 
         /**Adds the values to the Queue again using a stack*/
         private void refillQueue(Deque deque) {
+            System.out.println("Refilling Queue");
             while (!deque.isEmpty()) {
                 colorQueue.addLast((boardColor) deque.removeFirst());
             }
-            System.out.println(colorQueue);
-        }
-
-        /**Sets the cell to white so that when clicked on it lights up*/
-        private void cellSelected(int row, int column) {
-            System.out.println(row+ " "+ column);
-            Color temp = cell[row][column].getBackground();
-            cell[row][column].setBackground(Color.LIGHT_GRAY);
-            pause(400);
-            cell[row][column].setBackground(temp);
         }
     }
 }
